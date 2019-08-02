@@ -7,6 +7,7 @@ from __future__ import absolute_import
 
 import datetime
 import json
+import logging
 
 import six
 from django.conf import settings
@@ -16,7 +17,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import Count, Q
 from django.urls import reverse
 from edx_proctoring.api import get_exam_violation_report
-from opaque_keys.edx.keys import UsageKey, CourseKey
+from opaque_keys.edx.keys import CourseKey, UsageKey
 from six import text_type
 
 import xmodule.graders as xmgraders
@@ -34,6 +35,8 @@ from shoppingcart.models import (
     RegistrationCodeRedemption
 )
 from student.models import CourseEnrollment, CourseEnrollmentAllowed
+
+log = logging.getLogger(__name__)
 
 
 STUDENT_FEATURES = ('id', 'username', 'first_name', 'last_name', 'is_staff', 'email')
@@ -464,9 +467,57 @@ def list_problem_responses(course_key, problem_location, limit_responses=None):
         smdat = smdat[:limit_responses]
 
     return [
-        {'username': response.student.username, 'state': response.state}
+        {'username': response.student.username, 'state': get_response_state(response)}
         for response in smdat
     ]
+
+
+def get_response_state(response):
+    """
+    This method makes sure the unicode data is in learner's state
+    is preserved.
+    """
+    def get_transformer():
+        problem_transformers = {'openassessment': transform_ora_state, 'problem': transform_capa_state}
+        problem_type = response.module_type
+        return problem_transformers.get(problem_type)
+
+    response_state = response.state
+    state_transformer = get_transformer()
+    if not state_transformer:
+        return response_state
+
+    state = json.loads(response_state)
+    try:
+        transformed_state = state_transformer(state)
+        return json.dumps(transformed_state, encoding='utf8', ensure_ascii=False)
+    except TypeError:
+        username = response.student.username
+        err_msg = (
+            u'Error occurred while attempting to load learner state '
+            u'{username} for state {state}.'.format(
+                username=username,
+                state=response_state
+            )
+        )
+        log.error(err_msg)
+        return response_state
+
+
+def transform_ora_state(state):
+    fields_to_transform = ['saved_response', 'saved_files_descriptions']
+
+    for field in fields_to_transform:
+        field_state = state.get(field)
+        if not field_state:
+            continue
+
+        state[field] = json.loads(field_state)
+    return state
+
+
+def transform_capa_state(state):
+    return state
 
 
 def course_registration_features(features, registration_codes, csv_type):
