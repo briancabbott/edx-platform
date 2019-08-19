@@ -454,7 +454,7 @@ class XMLModuleStore(ModuleStoreReadBase):
             # VS[compat]
             # TODO (cpennington): Remove this once all fall 2012 courses have
             # been imported into the cms from xml
-            course_file = BytesIO(clean_out_mako_templating(course_file.read()))
+            course_file = BytesIO(six.b(clean_out_mako_templating(course_file.read())))
 
             course_data = etree.parse(course_file, parser=edx_xml_parser).getroot()
 
@@ -666,7 +666,7 @@ class XMLModuleStore(ModuleStoreReadBase):
                         slug = os.path.splitext(os.path.basename(filepath))[0]
                         loc = course_descriptor.scope_ids.usage_id.replace(category=category, name=slug)
                         # html file with html data content
-                        html = f.read().decode('utf-8')
+                        html = six.text_type(f.read())
                         try:
                             module = system.load_item(loc)
                             module.data = html

@@ -182,7 +182,7 @@ def _set_deprecated_user_info_cookie(response, request, user, cookie_settings):
     """
     user_info = _get_user_info_cookie_data(request, user)
     response.set_cookie(
-        settings.EDXMKTG_USER_INFO_COOKIE_NAME.encode('utf-8'),
+        six.text_type(settings.EDXMKTG_USER_INFO_COOKIE_NAME.encode('utf-8')),
         json.dumps(user_info),
         **cookie_settings
     )
@@ -196,7 +196,7 @@ def _set_deprecated_logged_in_cookie(response, cookie_settings):
     # In the future, we should be able to replace this with the "user info"
     # cookie set below.
     response.set_cookie(
-        settings.EDXMKTG_LOGGED_IN_COOKIE_NAME.encode('utf-8'),
+        six.text_type(settings.EDXMKTG_LOGGED_IN_COOKIE_NAME.encode('utf-8')),
         'true',
         **cookie_settings
     )
